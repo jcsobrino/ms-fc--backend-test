@@ -20,7 +20,7 @@ public class Tweet {
     private Boolean discarded = false;
     @Column
     @CreationTimestamp
-    private Timestamp createTimestamp;
+    private Timestamp publishedTimestamp;
     @Column
     private Timestamp discardedTimestamp;
 
@@ -67,12 +67,12 @@ public class Tweet {
         this.discarded = discarded;
     }
 
-    public Timestamp getCreateTimestamp() {
-        return createTimestamp;
+    public Timestamp getPublishedTimestamp() {
+        return publishedTimestamp;
     }
 
-    public void setCreateTimestamp(Timestamp createTimestamp) {
-        this.createTimestamp = createTimestamp;
+    public void setPublishedTimestamp(Timestamp publishedTimestamp) {
+        this.publishedTimestamp = publishedTimestamp;
     }
 
     public Timestamp getDiscardedTimestamp() {
