@@ -1,14 +1,12 @@
 package com.scmspain.controller;
 
-import com.scmspain.controller.command.PublishTweetCommand;
-import com.scmspain.entities.Tweet;
+import com.scmspain.dtos.TweetDTO;
 import com.scmspain.services.TweetService;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-import static org.springframework.http.HttpStatus.BAD_REQUEST;
-import static org.springframework.http.HttpStatus.CREATED;
+import static org.springframework.http.HttpStatus.*;
 
 @RestController
 public class TweetController {
@@ -19,14 +17,31 @@ public class TweetController {
     }
 
     @GetMapping("/tweet")
-    public List<Tweet> listAllTweets() {
-        return this.tweetService.listAllTweets();
+    public List<TweetDTO> listAllTweets() {
+        return this.tweetService.listAllPublishedTweets();
     }
 
     @PostMapping("/tweet")
     @ResponseStatus(CREATED)
-    public void publishTweet(@RequestBody PublishTweetCommand publishTweetCommand) {
-        this.tweetService.publishTweet(publishTweetCommand.getPublisher(), publishTweetCommand.getTweet());
+    public void publishTweet(@RequestBody TweetDTO tweetDTO) {
+        this.tweetService.publishTweet(tweetDTO);
+    }
+
+    @PostMapping("/discarded")
+    @ResponseStatus(OK)
+    public void discardTweet(@RequestBody TweetDTO tweetDTO) {
+        this.tweetService.discardTweet(Long.parseLong(tweetDTO.getTweet()));
+    }
+
+    @GetMapping("/discarded")
+    public List<TweetDTO> listAllDiscardedTweets() {
+        return this.tweetService.listAllDiscardedTweets();
+    }
+
+    @DeleteMapping("/deleteAllTweets")
+    @ResponseStatus(OK)
+    public int deleteAllTweetsTweets() {
+        return this.tweetService.deleteAllTweets();
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

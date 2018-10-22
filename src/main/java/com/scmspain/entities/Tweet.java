@@ -1,9 +1,9 @@
 package com.scmspain.entities;
 
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.GeneratedValue;
-import javax.persistence.Id;
+import org.hibernate.annotations.CreationTimestamp;
+
+import javax.persistence.*;
+import java.sql.Timestamp;
 
 @Entity
 public class Tweet {
@@ -12,10 +12,17 @@ public class Tweet {
     private Long id;
     @Column(nullable = false)
     private String publisher;
-    @Column(nullable = false, length = 140)
+    @Column(nullable = false, length = 500)
     private String tweet;
     @Column (nullable=true)
     private Long pre2015MigrationStatus = 0L;
+    @Column(nullable=false)
+    private Boolean discarded = false;
+    @Column
+    @CreationTimestamp
+    private Timestamp createTimestamp;
+    @Column
+    private Timestamp discardedTimestamp;
 
     public Tweet() {
     }
@@ -52,4 +59,27 @@ public class Tweet {
         this.pre2015MigrationStatus = pre2015MigrationStatus;
     }
 
+    public Boolean getDiscarded() {
+        return discarded;
+    }
+
+    public void setDiscarded(Boolean discarded) {
+        this.discarded = discarded;
+    }
+
+    public Timestamp getCreateTimestamp() {
+        return createTimestamp;
+    }
+
+    public void setCreateTimestamp(Timestamp createTimestamp) {
+        this.createTimestamp = createTimestamp;
+    }
+
+    public Timestamp getDiscardedTimestamp() {
+        return discardedTimestamp;
+    }
+
+    public void setDiscardedTimestamp(Timestamp discardedTimestamp) {
+        this.discardedTimestamp = discardedTimestamp;
+    }
 }

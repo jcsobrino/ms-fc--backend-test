@@ -1,19 +1,25 @@
 package com.scmspain.services;
 
+import com.scmspain.converters.TweetConverter;
+import com.scmspain.dtos.TweetDTO;
 import com.scmspain.entities.Tweet;
 import org.springframework.boot.actuate.metrics.writer.Delta;
 import org.springframework.boot.actuate.metrics.writer.MetricWriter;
 import org.springframework.stereotype.Service;
 
 import javax.persistence.EntityManager;
-import javax.persistence.TypedQuery;
 import javax.transaction.Transactional;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional
 public class TweetService {
+    public static final String LIST_PUBLISHED_TWEETS = "SELECT t FROM Tweet AS t WHERE discarded = false ORDER BY createTimestamp DESC";
+    public static final String LIST_DISCARDED_TWEETS = "SELECT t FROM Tweet AS t WHERE discarded = true ORDER BY discardedTimestamp DESC";
+    public static final String UPDATE_TWEET_AS_DISCARDED = "UPDATE Tweet SET discarded = true, discardedTimestamp = CURRENT_TIMESTAMP() WHERE id = :id AND discarded = false";
+    public static final String LINK_PATTERN = "\\bhttps?://\\S+ ";
+
     private EntityManager entityManager;
     private MetricWriter metricWriter;
 
@@ -28,16 +34,31 @@ public class TweetService {
       Parameter - text - Content of the Tweet
       Result - recovered Tweet
     */
-    public void publishTweet(String publisher, String text) {
-        if (publisher != null && publisher.length() > 0 && text != null && text.length() > 0 && text.length() < 140) {
-            Tweet tweet = new Tweet();
-            tweet.setTweet(text);
-            tweet.setPublisher(publisher);
+    public void publishTweet(TweetDTO tweetDTO) {
+        if (tweetDTO.getPublisher() == null || tweetDTO.getPublisher().isEmpty()){
+            throw new IllegalArgumentException("Published must not be null or empty");
+        }
 
-            this.metricWriter.increment(new Delta<Number>("published-tweets", 1));
-            this.entityManager.persist(tweet);
+        if(tweetDTO.getTweet() == null || tweetDTO.getTweet().isEmpty() || tweetDTO.getTweet().replaceAll(LINK_PATTERN,"").length() > 140) {
+            throw new IllegalArgumentException("Tweet must not be null, empty or greater than 140 characters without URLs");
+        }
+
+        if(tweetDTO.getTweet().length() > 500) {
+            throw new IllegalArgumentException("Tweet must not be greater than 500 characters with URLs");
+        }
+
+        this.metricWriter.increment(new Delta<Number>("published-tweets", 1));
+        this.entityManager.persist(TweetConverter.toEntity(tweetDTO));
+    }
+
+    public Boolean discardTweet(Long tweetId) {
+        this.metricWriter.increment(new Delta<Number>("discarded-tweets", 1));
+        if(tweetId != null) {
+            return this.entityManager.createQuery(UPDATE_TWEET_AS_DISCARDED)
+                    .setParameter("id", tweetId)
+                    .executeUpdate() != 0;
         } else {
-            throw new IllegalArgumentException("Tweet must not be greater than 140 characters");
+            throw new IllegalArgumentException("Tweet ID must not be null");
         }
     }
 
@@ -50,19 +71,31 @@ public class TweetService {
       return this.entityManager.find(Tweet.class, id);
     }
 
+    public int deleteAllTweets() {
+        return this.entityManager.createQuery("DELETE FROM Tweet").executeUpdate();
+    }
+
     /**
       Recover tweet from repository
       Parameter - id - id of the Tweet to retrieve
       Result - retrieved Tweet
     */
-    public List<Tweet> listAllTweets() {
-        List<Tweet> result = new ArrayList<Tweet>();
-        this.metricWriter.increment(new Delta<Number>("times-queried-tweets", 1));
-        TypedQuery<Long> query = this.entityManager.createQuery("SELECT id FROM Tweet AS tweetId WHERE pre2015MigrationStatus<>99 ORDER BY id DESC", Long.class);
-        List<Long> ids = query.getResultList();
-        for (Long id : ids) {
-            result.add(getTweet(id));
-        }
-        return result;
+    public List<TweetDTO> listAllPublishedTweets() {
+        this.metricWriter.increment(new Delta<Number>("times-queried-published-tweets", 1));
+        return this.entityManager.createQuery(LIST_PUBLISHED_TWEETS, Tweet.class)
+                .getResultList()
+                .stream()
+                .map(t -> TweetConverter.toDTO(t))
+                .collect(Collectors.toList());
     }
+
+    public List<TweetDTO> listAllDiscardedTweets() {
+        this.metricWriter.increment(new Delta<Number>("times-queried-published-tweets", 1));
+        return this.entityManager.createQuery(LIST_DISCARDED_TWEETS, Tweet.class)
+                .getResultList()
+                .stream()
+                .map(t -> TweetConverter.toDTO(t))
+                .collect(Collectors.toList());
+    }
+
 }
