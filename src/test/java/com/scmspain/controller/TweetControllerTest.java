@@ -35,7 +35,7 @@ public class TweetControllerTest {
     private ObjectMapper mapper = new ObjectMapper();
 
     @Before
-    public void setUp() throws Exception {
+    public void setUp(){
         this.mockMvc = webAppContextSetup(this.context).build();
     }
 
