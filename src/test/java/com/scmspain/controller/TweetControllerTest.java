@@ -108,7 +108,7 @@ public class TweetControllerTest {
     }
 
     @Test
-    public void shouldListPublishedTweetsByPublishedOrder() throws Exception {
+    public void shouldReturnListPublishedTweetsByPublishedOrder() throws Exception {
         mockMvc.perform(newTweet("Yo", "Tweet 1"))
                 .andExpect(status().is(201));
 
@@ -129,7 +129,7 @@ public class TweetControllerTest {
     }
 
     @Test
-    public void shouldListDiscardedTweetsByDiscardedOrder() throws Exception {
+    public void shouldReturnListDiscardedTweetsByDiscardedOrder() throws Exception {
         mockMvc.perform(newTweet("Yo", "Tweet 1"))
                 .andExpect(status().is(201));
 

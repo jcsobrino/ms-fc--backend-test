@@ -60,7 +60,7 @@ public class TweetServiceTest {
     }
 
     @Test
-    public void shouldListAllPublishedTweets() throws Exception {
+    public void shouldReturnListAllPublishedTweets() throws Exception {
         when(entityManager.createQuery(TweetService.LIST_PUBLISHED_TWEETS, Tweet.class)).thenReturn(mockedTypedQuery);
         when(mockedQuery.getResultList()).thenReturn(Lists.emptyList());
 
@@ -70,7 +70,7 @@ public class TweetServiceTest {
     }
 
     @Test
-    public void shouldListAllDiscardedTweets() throws Exception {
+    public void shouldReturnListAllDiscardedTweets() throws Exception {
         when(entityManager.createQuery(TweetService.LIST_DISCARDED_TWEETS, Tweet.class)).thenReturn(mockedTypedQuery);
         when(mockedQuery.getResultList()).thenReturn(Lists.emptyList());
 
