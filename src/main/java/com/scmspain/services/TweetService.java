@@ -12,6 +12,8 @@ import javax.transaction.Transactional;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import static org.springframework.util.StringUtils.isEmpty;
+
 @Service
 @Transactional
 public class TweetService {
@@ -19,6 +21,12 @@ public class TweetService {
     public static final String LIST_DISCARDED_TWEETS = "SELECT t FROM Tweet AS t WHERE discarded = true ORDER BY discardedTimestamp DESC";
     public static final String UPDATE_TWEET_AS_DISCARDED = "UPDATE Tweet SET discarded = true, discardedTimestamp = CURRENT_TIMESTAMP() WHERE id = :id AND discarded = false";
     public static final String LINK_PATTERN = "\\bhttps?://\\S+ ";
+    public static final int TWEET_MAX_LENGTH = 140;
+    public static final int TWEET_MAX_LENGTH_WITH_LINKS = 500;
+    public static final String METRIC_DISCARDED_TWEETS = "discarded-tweets";
+    public static final String METRIC_PUBLISHED_TWEETS = "published-tweets";
+    public static final String METRIC_TIMES_QUERIED_PUBLISHED_TWEETS = "times-queried-published-tweets";
+    public static final String METRIC_TIMES_QUERIED_DISCARDED_TWEETS = "times-queried-discarded-tweets";
 
     private EntityManager entityManager;
     private MetricWriter metricWriter;
@@ -29,30 +37,39 @@ public class TweetService {
     }
 
     /**
-      Push tweet to repository
-      Parameter - publisher - creator of the Tweet
-      Parameter - text - Content of the Tweet
-      Result - recovered Tweet
-    */
-    public void publishTweet(TweetDTO tweetDTO) {
-        if (tweetDTO.getPublisher() == null || tweetDTO.getPublisher().isEmpty()){
+     * Push tweet to repository
+     * @param tweetDTO published and text of the new tweet
+     * @throws IllegalArgumentException if published is null or empty
+     * @throws IllegalArgumentException if tweet is null, empty, length is greater than 140 characters without links or greater than 500 with links. A link is a string with the pattern '\bhttps?://\S+ '
+     */
+    public void publishTweet(final TweetDTO tweetDTO) {
+
+        if (isEmpty(tweetDTO.getPublisher())){
             throw new IllegalArgumentException("Published must not be null or empty");
         }
 
-        if(tweetDTO.getTweet() == null || tweetDTO.getTweet().isEmpty() || tweetDTO.getTweet().replaceAll(LINK_PATTERN,"").length() > 140) {
-            throw new IllegalArgumentException("Tweet must not be null, empty or greater than 140 characters without URLs");
+        if(isEmpty(tweetDTO.getTweet()) || tweetDTO.getTweet().replaceAll(LINK_PATTERN,"").length() > TWEET_MAX_LENGTH) {
+            throw new IllegalArgumentException(String.format("Tweet must not be null, empty or greater than %d characters without URLs", TWEET_MAX_LENGTH));
         }
 
-        if(tweetDTO.getTweet().length() > 500) {
-            throw new IllegalArgumentException("Tweet must not be greater than 500 characters with URLs");
+        if(tweetDTO.getTweet().length() > TWEET_MAX_LENGTH_WITH_LINKS) {
+            throw new IllegalArgumentException(String.format("Tweet must not be greater than %d characters with URLs", TWEET_MAX_LENGTH_WITH_LINKS));
         }
 
-        this.metricWriter.increment(new Delta<Number>("published-tweets", 1));
+        metricIncrement(METRIC_PUBLISHED_TWEETS);
         this.entityManager.persist(TweetConverter.toEntity(tweetDTO));
     }
 
-    public Boolean discardTweet(Long tweetId) {
-        this.metricWriter.increment(new Delta<Number>("discarded-tweets", 1));
+    /**
+     * Set a published tweet as discarded
+     * @param tweetId the tweet id to discard
+     * @return true if a tweet was discarded. Otherwise, false
+     * @throws IllegalArgumentException if tweetId is null
+     */
+    public Boolean discardTweet(final Long tweetId) {
+
+        metricIncrement(METRIC_DISCARDED_TWEETS);
+
         if(tweetId != null) {
             return this.entityManager.createQuery(UPDATE_TWEET_AS_DISCARDED)
                     .setParameter("id", tweetId)
@@ -71,17 +88,14 @@ public class TweetService {
       return this.entityManager.find(Tweet.class, id);
     }
 
-    public int deleteAllTweets() {
-        return this.entityManager.createQuery("DELETE FROM Tweet").executeUpdate();
-    }
-
     /**
-      Recover tweet from repository
-      Parameter - id - id of the Tweet to retrieve
-      Result - retrieved Tweet
-    */
+     * List all published tweets but not the discarded ones and ordered by published timestamp
+     * @return list of published tweets
+     */
     public List<TweetDTO> listAllPublishedTweets() {
-        this.metricWriter.increment(new Delta<Number>("times-queried-published-tweets", 1));
+
+        metricIncrement(METRIC_TIMES_QUERIED_PUBLISHED_TWEETS);
+
         return this.entityManager.createQuery(LIST_PUBLISHED_TWEETS, Tweet.class)
                 .getResultList()
                 .stream()
@@ -89,13 +103,23 @@ public class TweetService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * List all discarded tweets ordered by discarded timestamp
+     * @return list of discarded tweets
+     */
     public List<TweetDTO> listAllDiscardedTweets() {
-        this.metricWriter.increment(new Delta<Number>("times-queried-published-tweets", 1));
+
+        metricIncrement(METRIC_TIMES_QUERIED_DISCARDED_TWEETS);
+
         return this.entityManager.createQuery(LIST_DISCARDED_TWEETS, Tweet.class)
                 .getResultList()
                 .stream()
                 .map(t -> TweetConverter.toDTO(t))
                 .collect(Collectors.toList());
+    }
+
+    protected void metricIncrement(final String name){
+        this.metricWriter.increment(new Delta<Number>(name, 1));
     }
 
 }

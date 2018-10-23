@@ -1,11 +1,10 @@
 package com.scmspain.dtos;
 
-import java.sql.Timestamp;
-
 public class TweetDTO {
     private Long id;
     private String publisher;
     private String tweet;
+    private Long pre2015MigrationStatus;
 
     public TweetDTO(){
 
@@ -38,5 +37,13 @@ public class TweetDTO {
 
     public void setTweet(String tweet) {
         this.tweet = tweet;
+    }
+
+    public Long getPre2015MigrationStatus() {
+        return pre2015MigrationStatus;
+    }
+
+    public void setPre2015MigrationStatus(Long pre2015MigrationStatus) {
+        this.pre2015MigrationStatus = pre2015MigrationStatus;
     }
 }

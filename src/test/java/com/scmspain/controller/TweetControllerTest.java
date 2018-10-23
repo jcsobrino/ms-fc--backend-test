@@ -3,13 +3,13 @@ package com.scmspain.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.scmspain.configuration.TestConfiguration;
 import com.scmspain.dtos.TweetDTO;
-import com.scmspain.entities.Tweet;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -20,7 +20,6 @@ import java.util.List;
 
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -28,15 +27,16 @@ import static org.springframework.test.web.servlet.setup.MockMvcBuilders.webAppC
 
 @RunWith(SpringRunner.class)
 @SpringBootTest(classes = TestConfiguration.class)
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 public class TweetControllerTest {
     @Autowired
     private WebApplicationContext context;
     private MockMvc mockMvc;
+    private ObjectMapper mapper = new ObjectMapper();
 
     @Before
     public void setUp() throws Exception {
         this.mockMvc = webAppContextSetup(this.context).build();
-        mockMvc.perform(this.deleteAllTweets());
     }
 
     @Test
@@ -50,11 +50,16 @@ public class TweetControllerTest {
         mockMvc.perform(newTweet("Schibsted Spain", "We are Schibsted Spain (look at our home pagehttp://www.schibsted.es/), we own Vibbo, InfoJobs, fotocasa, coches.net and milanuncios. Welcome!"))
                 .andExpect(status().is(400));
     }
-
     @Test
     public void shouldReturn200WhenInsertingALongTweetWithAValidLink() throws Exception {
         mockMvc.perform(newTweet("Schibsted Spain", "We are Schibsted Spain (look at our home page http://www.schibsted.es/ ), we own Vibbo, InfoJobs, fotocasa, coches.net and milanuncios. Welcome!"))
                 .andExpect(status().is(201));
+    }
+
+    @Test
+    public void shouldReturn400WhenInsertingAnEmptyPublished() throws Exception {
+        mockMvc.perform(newTweet("", "We are Schibsted Spain (look at our home pagehttp://www.schibsted.es/), we own Vibbo, InfoJobs, fotocasa, coches.net and milanuncios. Welcome!"))
+                .andExpect(status().is(400));
     }
 
     @Test
@@ -66,8 +71,7 @@ public class TweetControllerTest {
                 .andExpect(status().is(200))
                 .andReturn();
 
-        String content = getResult.getResponse().getContentAsString();
-        assertThat(new ObjectMapper().readValue(content, List.class).size()).isEqualTo(1);
+        assertThat(resultToList(getResult).size()).isEqualTo(1);
     }
 
     @Test
@@ -79,30 +83,28 @@ public class TweetControllerTest {
                 .andExpect(status().is(200))
                 .andReturn();
 
-        String contentPublished = getResultPublished.getResponse().getContentAsString();
-        List<TweetDTO> listOfTweets = new ObjectMapper().readValue(contentPublished, new ObjectMapper().getTypeFactory().constructCollectionType(List.class, TweetDTO.class));
-        assertThat(listOfTweets.size()).isEqualTo(1);
+        List<TweetDTO> listOfPublishedTweets = resultToList(getResultPublished);
+        assertThat(listOfPublishedTweets.size()).isEqualTo(1);
 
         // set first tweet as discarded
-        mockMvc.perform(discardTweet(listOfTweets.get(0).getId()))
+        mockMvc.perform(discardTweet(listOfPublishedTweets.get(0).getId()))
                 .andExpect(status().is(200));
 
         getResultPublished = mockMvc.perform(get("/tweet"))
                 .andExpect(status().is(200))
                 .andReturn();
 
-        contentPublished = getResultPublished.getResponse().getContentAsString();
-
-        //tweet does not appear in published tweet list
-        assertThat(new ObjectMapper().readValue(contentPublished, List.class).size()).isEqualTo(0);
+        //tweet does not appear in published tweet list anymore
+        assertThat(resultToList(getResultPublished).size()).isEqualTo(0);
 
         MvcResult getResultDiscarded = mockMvc.perform(get("/discarded"))
                 .andExpect(status().is(200))
                 .andReturn();
 
-        String contentDiscarded = getResultDiscarded.getResponse().getContentAsString();
-        assertThat(new ObjectMapper().readValue(contentDiscarded, List.class).size()).isEqualTo(1);
-
+        // now, list of discarded tweets has one element and its ID is the same discarded before
+        List<TweetDTO> listOfDiscardedTweets = resultToList(getResultDiscarded);
+        assertThat(resultToList(getResultDiscarded).size()).isEqualTo(1);
+        assertThat(listOfPublishedTweets.get(0).getId()).isEqualTo(listOfDiscardedTweets.get(0).getId());
     }
 
     @Test
@@ -120,13 +122,11 @@ public class TweetControllerTest {
                 .andExpect(status().is(200))
                 .andReturn();
 
-        String contentPublished = getResultPublished.getResponse().getContentAsString();
-        List<TweetDTO> listOfTweets = new ObjectMapper().readValue(contentPublished, new ObjectMapper().getTypeFactory().constructCollectionType(List.class, TweetDTO.class));
+        List<TweetDTO> listOfTweets = resultToList(getResultPublished);
         assertThat(listOfTweets.get(0).getTweet()).isEqualTo("Tweet 3");
         assertThat(listOfTweets.get(1).getTweet()).isEqualTo("Tweet 2");
         assertThat(listOfTweets.get(2).getTweet()).isEqualTo("Tweet 1");
     }
-
 
     @Test
     public void shouldListDiscardedTweetsByDiscardedOrder() throws Exception {
@@ -143,8 +143,7 @@ public class TweetControllerTest {
                 .andExpect(status().is(200))
                 .andReturn();
 
-        String contentPublished = getResultPublished.getResponse().getContentAsString();
-        List<TweetDTO> listOfTweets = new ObjectMapper().readValue(contentPublished, new ObjectMapper().getTypeFactory().constructCollectionType(List.class, TweetDTO.class));
+        List<TweetDTO> listOfTweets = resultToList(getResultPublished);
         assertThat(listOfTweets.size()).isEqualTo(3);
 
         mockMvc.perform(discardTweet(listOfTweets.get(1).getId()))
@@ -160,17 +159,12 @@ public class TweetControllerTest {
                 .andExpect(status().is(200))
                 .andReturn();
 
-        String contentDiscarded = getResultDiscarded.getResponse().getContentAsString();
-        List<TweetDTO> listOfDiscardedTweets = new ObjectMapper().readValue(contentDiscarded, new ObjectMapper().getTypeFactory().constructCollectionType(List.class, TweetDTO.class));
+        List<TweetDTO> listOfDiscardedTweets = resultToList(getResultDiscarded);
         assertThat(listOfDiscardedTweets.size()).isEqualTo(3);
         assertThat(listOfDiscardedTweets.get(0).getId()).isEqualTo(listOfTweets.get(0).getId());
         assertThat(listOfDiscardedTweets.get(1).getId()).isEqualTo(listOfTweets.get(2).getId());
         assertThat(listOfDiscardedTweets.get(2).getId()).isEqualTo(listOfTweets.get(1).getId());
-
-
     }
-
-
 
     private MockHttpServletRequestBuilder newTweet(String publisher, String tweet) {
         return post("/tweet")
@@ -184,8 +178,10 @@ public class TweetControllerTest {
                 .content(format("{\"tweet\": %d}", tweetId));
     }
 
-    private MockHttpServletRequestBuilder deleteAllTweets() {
-        return delete("/deleteAllTweets");
+    private List<TweetDTO> resultToList(final MvcResult result) throws Exception {
+        final String content = result.getResponse().getContentAsString();
+        return mapper.readValue(content, mapper.getTypeFactory().constructCollectionType(List.class, TweetDTO.class));
+
     }
 
 }

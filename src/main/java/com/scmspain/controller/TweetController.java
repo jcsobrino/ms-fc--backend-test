@@ -17,7 +17,7 @@ public class TweetController {
     }
 
     @GetMapping("/tweet")
-    public List<TweetDTO> listAllTweets() {
+    public List<TweetDTO> listAllPublishedTweets() {
         return this.tweetService.listAllPublishedTweets();
     }
 
@@ -34,14 +34,9 @@ public class TweetController {
     }
 
     @GetMapping("/discarded")
+    @ResponseStatus(OK)
     public List<TweetDTO> listAllDiscardedTweets() {
         return this.tweetService.listAllDiscardedTweets();
-    }
-
-    @DeleteMapping("/deleteAllTweets")
-    @ResponseStatus(OK)
-    public int deleteAllTweetsTweets() {
-        return this.tweetService.deleteAllTweets();
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
