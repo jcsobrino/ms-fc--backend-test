@@ -28,7 +28,6 @@ public class TweetConverter {
         tweet.setId(tweetDTO.getId());
         tweet.setPublisher(tweetDTO.getPublisher());
         tweet.setTweet(tweetDTO.getTweet());
-        tweet.setPre2015MigrationStatus(tweetDTO.getPre2015MigrationStatus());
 
         return tweet;
     }

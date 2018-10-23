@@ -17,8 +17,8 @@ import static org.springframework.util.StringUtils.isEmpty;
 @Service
 @Transactional
 public class TweetService {
-    public static final String LIST_PUBLISHED_TWEETS = "SELECT t FROM Tweet AS t WHERE discarded = false ORDER BY publishedTimestamp DESC";
-    public static final String LIST_DISCARDED_TWEETS = "SELECT t FROM Tweet AS t WHERE discarded = true ORDER BY discardedTimestamp DESC";
+    public static final String LIST_PUBLISHED_TWEETS = "SELECT t FROM Tweet AS t WHERE discarded = false AND pre2015MigrationStatus <> 99 ORDER BY publishedTimestamp DESC";
+    public static final String LIST_DISCARDED_TWEETS = "SELECT t FROM Tweet AS t WHERE discarded = true AND pre2015MigrationStatus <> 99 ORDER BY discardedTimestamp DESC";
     public static final String UPDATE_TWEET_AS_DISCARDED = "UPDATE Tweet SET discarded = true, discardedTimestamp = CURRENT_TIMESTAMP() WHERE id = :id AND discarded = false";
     public static final String LINK_PATTERN = "\\bhttps?://\\S+ ";
     public static final int TWEET_MAX_LENGTH = 140;
